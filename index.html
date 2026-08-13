@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#fbf5e9;
+    --bg:#fff1f6;
     --paper:#fffdf8;
     --ink:#2b1b0e;
     --muted:#7b6858;
@@ -31,14 +31,39 @@
     font-family:'DM Sans',sans-serif;
     color:var(--ink);
     background:
-      radial-gradient(circle at 12% 8%,rgba(214,146,34,.08),transparent 24rem),
-      radial-gradient(circle at 88% 20%,rgba(124,77,120,.06),transparent 22rem),
-      var(--bg);
+      radial-gradient(circle at 12% 8%,rgba(255,179,210,.28),transparent 24rem),
+      radial-gradient(circle at 88% 20%,rgba(203,153,255,.18),transparent 22rem),
+      linear-gradient(180deg,#fff5f8 0%, #ffeef5 55%, #fff3f7 100%);
     min-height:100vh;
   }
+  body > :not(.bg-onions){position:relative;z-index:1}
   body::before{
     content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
     background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.025'/%3E%3C/svg%3E");
+  }
+  .bg-onions{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .bg-onions span{
+    position:absolute;
+    font-size:1.45rem;
+    opacity:.22;
+    filter:saturate(.9);
+    animation:drift 18s ease-in-out infinite alternate;
+    will-change:transform;
+  }
+  .bg-onions span:nth-child(2n){animation-duration:22s;animation-delay:-7s}
+  .bg-onions span:nth-child(3n){animation-duration:26s;animation-delay:-13s}
+  .bg-onions span:nth-child(4n){animation-duration:20s;animation-delay:-4s}
+  .bg-onions span:nth-child(5n){animation-duration:24s;animation-delay:-10s}
+  .bg-onions span:nth-child(6n){animation-direction:alternate-reverse}
+  @keyframes drift{
+    0%{transform:translate3d(-18px,8px,0) rotate(-8deg)}
+    25%{transform:translate3d(14px,-18px,0) rotate(5deg)}
+    50%{transform:translate3d(34px,10px,0) rotate(10deg)}
+    75%{transform:translate3d(8px,24px,0) rotate(-4deg)}
+    100%{transform:translate3d(-28px,-10px,0) rotate(-10deg)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .bg-onions span{animation:none}
   }
 
   header{
@@ -211,6 +236,29 @@
 </style>
 </head>
 <body>
+<div class="bg-onions" aria-hidden="true">
+  <span style="top:6%;left:7%">🧅💃</span>
+  <span style="top:10%;left:22%">🧅🏃</span>
+  <span style="top:7%;left:41%">💃🧅</span>
+  <span style="top:14%;left:63%">🏃🧅</span>
+  <span style="top:9%;left:83%">🧅💃</span>
+  <span style="top:27%;left:12%">🧅🏃</span>
+  <span style="top:33%;left:31%">💃🧅</span>
+  <span style="top:29%;left:52%">🧅💃</span>
+  <span style="top:35%;left:75%">🧅🏃</span>
+  <span style="top:47%;left:6%">🏃🧅</span>
+  <span style="top:51%;left:25%">🧅💃</span>
+  <span style="top:55%;left:45%">🧅🏃</span>
+  <span style="top:49%;left:67%">💃🧅</span>
+  <span style="top:58%;left:86%">🧅💃</span>
+  <span style="top:71%;left:14%">🧅🏃</span>
+  <span style="top:77%;left:36%">💃🧅</span>
+  <span style="top:73%;left:58%">🏃🧅</span>
+  <span style="top:81%;left:79%">🧅💃</span>
+  <span style="top:90%;left:10%">💃🧅</span>
+  <span style="top:88%;left:50%">🧅🏃</span>
+  <span style="top:91%;left:84%">🏃🧅</span>
+</div>
 <header>
   <div class="brand">
     <div class="brand-top">
