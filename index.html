@@ -128,11 +128,11 @@
 
   .rater{margin-top:1.4rem;background:var(--paper);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
   .rater-head{padding:1rem 1.1rem;display:flex;align-items:center;justify-content:space-between;gap:.8rem;border-bottom:1px solid var(--border)}
-  .rater.cece .rater-head{background:linear-gradient(90deg,#fff3d7,#fffaf0)}
+  .rater.cece .rater-head{background:linear-gradient(90deg,#ccccff,#e8e8ff)}
   .rater.jon .rater-head{background:linear-gradient(90deg,#f6edf6,#fffafd)}
   .rater-name{display:flex;align-items:center;gap:.65rem}
   .avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:900;font-size:1rem}
-  .cece .avatar{background:var(--gold);color:white}
+  .cece .avatar{background:#8f96e8;color:white;box-shadow:inset 0 0 0 2px rgba(255,255,255,.18)}
   .jon .avatar{background:var(--jon);color:white}
   .rater-name h2{font-family:'Fraunces',serif;font-size:1.15rem;line-height:1}
   .rater-name p{font:400 .59rem 'DM Mono',monospace;color:var(--muted);letter-spacing:.05em;margin-top:.22rem;text-transform:uppercase}
@@ -326,7 +326,7 @@
       <div class="photo-slot">
         <div class="photo-preview" id="photo-preview" aria-live="polite">📷</div>
         <div>
-          <div class="photo-copy">Add a photo of the rings. Ratings sync to Google Sheets; photos stay on this device for now.</div>
+          <div class="photo-copy">Add a photo of the rings. Ratings and photos sync across devices through Google Sheets + Drive.</div>
           <div class="photo-actions">
             <input class="file-input" id="photo-upload" type="file" accept="image/*">
             <label class="file-label" for="photo-upload">Choose photo</label>
@@ -431,6 +431,9 @@ const ratings = {cece:{}, jon:{}};
 let photoData = '';
 const STORAGE_KEY = 'onionRingRatingsV1';
 const GS_URL = 'https://script.google.com/macros/s/AKfycbx1jS6UfUhNezMuCRfnsKYducTw95XiradR84tI7lwcb_TfRZj6aFfdBpRs6Fd_an4/exec';
+// Preview environments ask for permission before any external network request.
+// Only enable cloud sync on the deployed GitHub Pages site.
+const CLOUD_SYNC_ENABLED = location.hostname.endsWith('.github.io');
 
 async function gsRead(){
   const response=await fetch(GS_URL+'?action=read',{method:'GET',redirect:'follow',cache:'no-store'});
@@ -448,8 +451,7 @@ async function gsWrite(payload){
 }
 
 async function gsAdd(entry){
-  const cloudEntry={...entry,photo:''};
-  return gsWrite({action:'add',entry:cloudEntry});
+  return gsWrite({action:'add',entry});
 }
 
 async function gsDelete(id){
@@ -466,7 +468,7 @@ function mergeCloudWithLocal(cloud,local){
   const localById=new Map(local.map(x=>[String(x.id),x]));
   const merged=(Array.isArray(cloud)?cloud:[]).map(item=>{
     const localItem=localById.get(String(item.id));
-    return {...item,photo:(localItem&&localItem.photo)||item.photo||''};
+    return {...item,photo:item.photo||(localItem&&localItem.photo)||''};
   });
   const cloudIds=new Set(merged.map(x=>String(x.id)));
   local.forEach(item=>{if(!cloudIds.has(String(item.id))) merged.push(item)});
@@ -475,6 +477,12 @@ function mergeCloudWithLocal(cloud,local){
 
 async function syncFromCloud(render=true){
   const local=load();
+  if(!CLOUD_SYNC_ENABLED){
+    if(render) renderBoardFromData(local);
+    updateSummary(local);
+    setSyncStatus('','Preview mode · Google Sheets sync starts on GitHub Pages');
+    return local;
+  }
   try{
     setSyncStatus('pending','Refreshing ratings from Google Sheets…');
     const cloud=await gsRead();
@@ -483,7 +491,7 @@ async function syncFromCloud(render=true){
     store(merged);
     updateSummary(merged);
     if(render) renderBoardFromData(merged);
-    setSyncStatus('','Google Sheets sync active');
+    setSyncStatus('','Google Sheets + photo sync active');
     return merged;
   }catch(err){
     if(render) renderBoardFromData(local);
@@ -573,12 +581,12 @@ function resizePhoto(file){
       const img=new Image();
       img.onerror=reject;
       img.onload=()=>{
-        const max=1000;
+        const max=900;
         const scale=Math.min(1,max/Math.max(img.width,img.height));
         const canvas=document.createElement('canvas');
         canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);
         canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-        resolve(canvas.toDataURL('image/jpeg',.8));
+        resolve(canvas.toDataURL('image/jpeg',.74));
       };
       img.src=reader.result;
     };
@@ -635,17 +643,32 @@ async function saveRating(){
   updateSummary(arr);
   const btn=document.getElementById('savebtn');
   btn.disabled=true;btn.textContent='Saving…';
-  setSyncStatus('pending','Saving rating to Google Sheets…');
 
-  try{
-    await gsAdd(entry);
-    setSyncStatus('','Google Sheets sync active');
-    showToast('Saved! Final score: '+entry.score.toFixed(2));
-  }catch(err){
-    setSyncStatus('offline','Saved locally — Google Sheets could not be reached');
-    showToast('Saved locally. Cloud sync failed.');
-  }finally{
+  if(!CLOUD_SYNC_ENABLED){
+    setSyncStatus('','Preview mode · Saved locally; Google Sheets sync starts on GitHub Pages');
+    showToast('Saved locally! Final score: '+entry.score.toFixed(2));
     btn.disabled=false;btn.textContent='Save these onion rings →';
+  }else{
+    setSyncStatus('pending','Saving rating to Google Sheets…');
+    try{
+      await gsAdd(entry);
+      // POST uses no-cors, so confirm the save with a read-back. This also
+      // replaces the local base64 photo with its shared Google Drive URL.
+      await new Promise(resolve=>setTimeout(resolve,450));
+      const cloud=await gsRead();
+      const confirmed=Array.isArray(cloud)&&cloud.some(x=>String(x.id)===String(entry.id));
+      if(!confirmed) throw new Error('Cloud save could not be confirmed');
+      const merged=mergeCloudWithLocal(cloud,load());
+      store(merged);
+      updateSummary(merged);
+      setSyncStatus('','Google Sheets + photo sync active');
+      showToast('Saved! Final score: '+entry.score.toFixed(2));
+    }catch(err){
+      setSyncStatus('offline','Saved locally — Google cloud sync could not be confirmed');
+      showToast('Saved locally. Cloud sync failed.');
+    }finally{
+      btn.disabled=false;btn.textContent='Save these onion rings →';
+    }
   }
 
   resetForm();
@@ -738,11 +761,16 @@ async function deleteRating(id){
   const arr=load().filter(x=>String(x.id)!==String(id));
   store(arr);
   renderBoardFromData(arr);
-  setSyncStatus('pending','Removing rating from Google Sheets…');
+  if(!CLOUD_SYNC_ENABLED){
+    setSyncStatus('','Preview mode · Removed locally; Google Sheets sync starts on GitHub Pages');
+    showToast('Rating removed locally');
+    return;
+  }
+  setSyncStatus('pending','Removing rating and photo from Google cloud…');
   try{
     await gsDelete(id);
-    setSyncStatus('','Google Sheets sync active');
-    showToast('Rating removed');
+    setSyncStatus('','Google Sheets + photo sync active');
+    showToast('Rating and photo removed');
   }catch(err){
     setSyncStatus('offline','Removed locally — Google Sheets could not be reached');
     showToast('Removed locally. Cloud delete failed.');
@@ -777,7 +805,11 @@ document.getElementById('date').value=todayISO();
 document.getElementById('photo-upload').addEventListener('change',handlePhoto);
 updateSummary(load());
 updateScores();
-syncFromCloud(false);
+if(CLOUD_SYNC_ENABLED){
+  syncFromCloud(false);
+}else{
+  setSyncStatus('','Preview mode · Google Sheets sync starts on GitHub Pages');
+}
 </script>
 </body>
 </html>
